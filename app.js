@@ -147,46 +147,54 @@ async function generateComment({
   transcription,
   imageData,
   ownerFullName,
-  numComments = 5,
+  numComments,
 }) {
   console.log("Generating comment with Gemini...");
+  // Using your specified GoogleGenAI import and instantiation
   const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-  const numberOfComments = numComments;
+  const numberOfComments = numComments || 5; // Generate a reasonable number of comments for Slack
 
-  let contents = [];
+  let promptParts = [];
 
-  let promptText = `${TEAM_SOP}\n\n`;
+  // Prepend TEAM_SOP to the main prompt text
+  let fullPromptText = `${TEAM_SOP}\n\n`;
 
-  promptText += `Based on the provided Instagram post details, generate ${numberOfComments} highly organic and specific comments.`;
+  // Build the main prompt text
+  fullPromptText += `Based on the provided Instagram post details, generate ${numberOfComments} highly organic and specific comments.`;
 
   if (ownerFullName) {
-    promptText += ` The post owner's name is: ${ownerFullName}.`;
+    fullPromptText += ` The post owner's name is: ${ownerFullName}.`;
   }
 
-  promptText += `\n\nProvide only the comments, each on a new line.`;
+  fullPromptText += `\n\nDo NOT include any introductory sentence or numbering in your response. Provide only the comments, each on a new line.`;
 
-  promptText += `\n\nCaption: "${caption}"`;
+  fullPromptText += `\n\nCaption: "${caption}"`;
 
   if (transcription) {
-    promptText += `\nVideo Transcription:\n"${transcription}"`;
-    contents.push({ text: promptText });
+    fullPromptText += `\nVideo Transcription:\n"${transcription}"`;
+    promptParts.push({ text: fullPromptText });
   } else if (imageData && imageData.data && imageData.mimeType) {
-    promptText += `\nAnalyze the provided image and caption.`;
-    contents.push(
-      { text: promptText },
+    // For image posts, add prompt text and image data as separate parts
+    fullPromptText += `\nAnalyze the provided image and caption.`;
+    promptParts.push(
+      { text: fullPromptText },
       { inlineData: { mimeType: imageData.mimeType, data: imageData.data } }
     );
   } else {
-    contents.push({ text: promptText });
+    // Fallback if no video or image data, just use caption
+    promptParts.push({ text: fullPromptText });
   }
 
-  const result = await genAI.models.generateContent({
-    model: "gemini-2.0-flash", // Use the model you specified
-    contents: contents,
+  // Use the model you specified: gemini-2.0-flash
+  const response = await genAI.models.generateContent({
+    model: "gemini-2.0-flash",
+    contents: promptParts,
+    config: {
+      systemInstruction: `${TEAM_SOP}`,
+    },
   });
 
-  const response = result.response;
   const text = response.text;
   console.log("Generated text:", text);
   return text;
@@ -233,9 +241,10 @@ async function generateCommentForLink(
   userId,
   numComments
 ) {
-  let ephemeralMessageTs = null;
+  let ephemeralMessageTs = null; // Initialize to null
 
   try {
+    // Send an ephemeral "thinking" message
     const ephemeralResponse = await client.chat.postEphemeral({
       channel: channelId,
       user: userId,
@@ -243,6 +252,7 @@ async function generateCommentForLink(
       thread_ts: threadTs,
     });
 
+    // Only store the timestamp if the ephemeral message was successfully sent
     if (ephemeralResponse.ok) {
       ephemeralMessageTs = ephemeralResponse.message_ts;
     } else {
@@ -251,88 +261,39 @@ async function generateCommentForLink(
       );
     }
 
-    await client.chat.postEphemeral({
-      channel: channelId,
-      user: userId,
-      text: `Status: Attempting to scrape Instagram post...`,
-      thread_ts: threadTs,
-    });
-
-    const postData = await retryOperation(() => scrapeInstagramPost(url));
-    await client.chat.postEphemeral({
-      channel: channelId,
-      user: userId,
-      text: `Status: Instagram post scraped successfully. Link type: ${
-        postData.linkType || "unknown"
-      }.`,
-      thread_ts: threadTs,
-    });
+    const postData = await scrapeInstagramPost(url);
 
     let transcription = "";
-    let imageData = null;
+    let imageData = null; // To store Base64 image data for Gemini
 
-    if (postData.videoUrl && postData.linkType === "GraphVideo") {
-      await client.chat.postEphemeral({
-        channel: channelId,
-        user: userId,
-        text: `Status: Detected video. Attempting transcription via Deepgram...`,
-        thread_ts: threadTs,
-      });
-      transcription = await retryOperation(() =>
-        transcribeVideo(postData.videoUrl)
-      );
-      await client.chat.postEphemeral({
-        channel: channelId,
-        user: userId,
-        text: `Status: Video transcribed.`,
-        thread_ts: threadTs,
-      });
+    // Determine content type and prepare input for Gemini
+    if (postData.videoUrl && postData.linkType === "Video") {
+      console.log("Detected video post, attempting transcription...");
+      transcription = await transcribeVideo(postData.videoUrl);
     } else if (
-      postData.linkType === "GraphImage" ||
-      postData.linkType === "GraphSidecar"
+      postData.linkType === "Sidecar" ||
+      postData.linkType === "Image"
     ) {
-      await client.chat.postEphemeral({
-        channel: channelId,
-        user: userId,
-        text: `Status: Detected image/carousel. Downloading image for Gemini analysis...`,
-        thread_ts: threadTs,
-      });
-      const imageUrlToDownload = postData.displayUrl || postData.imageUrl;
+      console.log(
+        "Detected image post, attempting to download image for analysis..."
+      );
+      // Only proceed if imageUrl is a string and looks like a valid URL
       if (
-        typeof imageUrlToDownload === "string" &&
-        imageUrlToDownload.startsWith("http")
+        typeof postData.displayUrl === "string" &&
+        postData.displayUrl.startsWith("http")
       ) {
-        imageData = await retryOperation(() =>
-          downloadImageAsBase64(imageUrlToDownload)
-        );
+        imageData = await downloadImageAsBase64(postData.displayUrl);
+
         if (!imageData) {
           console.warn(
-            "Image download failed for image/carousel post, proceeding without image analysis."
+            "Image download failed for image post, proceeding without image analysis."
           );
-          await client.chat.postEphemeral({
-            channel: channelId,
-            user: userId,
-            text: `Warning: Image download failed. Proceeding with caption only for comment generation.`,
-            thread_ts: threadTs,
-          });
-        } else {
-          await client.chat.postEphemeral({
-            channel: channelId,
-            user: userId,
-            text: `Status: Image downloaded.`,
-            thread_ts: threadTs,
-          });
+          // You might choose to throw an error here, or just proceed without image context
         }
       } else {
         console.warn(
-          "Invalid image URL found for image/carousel post, proceeding without image analysis."
+          "Invalid image URL found for image post, proceeding without image analysis."
         );
-        await client.chat.postEphemeral({
-          channel: channelId,
-          user: userId,
-          text: `Warning: Invalid image URL. Proceeding with caption only for comment generation.`,
-          thread_ts: threadTs,
-        });
       }
     } else {
       console.log(
@@ -340,49 +301,38 @@ async function generateCommentForLink(
           postData.linkType || "unknown"
         }), proceeding with caption only.`
       );
-      await client.chat.postEphemeral({
-        channel: channelId,
-        user: userId,
-        text: `Status: Unsupported post type. Proceeding with caption only for comment generation.`,
-        thread_ts: threadTs,
-      });
     }
 
-    await client.chat.postEphemeral({
-      channel: channelId,
-      user: userId,
-      text: `Status: Generating comments via Gemini...`,
-      thread_ts: threadTs,
-    });
-    const comments = await retryOperation(() =>
-      generateComment({
-        caption: postData.caption,
-        transcription: transcription,
-        imageData: imageData,
-        ownerFullName: postData.ownerFullName,
-        numComments: numComments,
-      })
-    );
-    await client.chat.postEphemeral({
-      channel: channelId,
-      user: userId,
-      text: `Status: Comments generated. Posting to Slack...`,
-      thread_ts: threadTs,
+    const comments = await generateComment({
+      caption: postData.caption,
+      transcription: transcription,
+      imageData: imageData, // Pass image data if available
+      ownerFullName: postData.ownerFullName, // Pass owner name
+      numComments: numComments,
     });
 
+    // --- Formatting generated comments ---
+    // Split comments by newlines and filter out empty lines.
+    // The prompt is now designed to prevent leading numbers or introductory phrases,
+    // but this cleanup is still useful as a safeguard.
     const rawCommentLines = comments
       .split("\n")
-      .filter((line) => line.trim() !== "")
-      .map((line) => line.trim());
+      .filter((line) => line.trim() !== "") // Filter out empty lines
+      .map((line) => line.trim()); // Trim whitespace from each line
 
+    // Join comments with two newlines for spacing, WITHOUT numbering
     const finalCommentsOutput = rawCommentLines.join("\n\n");
+    // --- End Formatting ---
 
+    // Post the generated comments as a reply in the thread
     await client.chat.postMessage({
       channel: channelId,
+      // Removed introductory text and numbering
       text: finalCommentsOutput,
-      thread_ts: threadTs,
+      thread_ts: threadTs, // This makes it a thread reply
     });
 
+    // Delete the ephemeral "thinking" message ONLY if it was successfully sent initially
     if (ephemeralMessageTs) {
       try {
         await client.chat.delete({
@@ -393,19 +343,22 @@ async function generateCommentForLink(
         console.warn(
           `Failed to delete ephemeral message: ${deleteError.message}`
         );
+        // Log the warning but don't re-throw, as comment was already posted
       }
     }
 
     console.log(`Successfully generated and posted comments for ${url}`);
   } catch (error) {
     console.error("Error in generateCommentForLink:", error);
-    const errorMessage = `Sorry, <@${userId}>, I couldn't generate comments for that link. Error: \`${error.message}\` 😔 Check Cloud Run logs for more details.`;
+    const errorMessage = `Sorry, <@${userId}>, I couldn't generate comments for that link. Error: \`${error.message}\` 😔`;
 
+    // Attempt to post an error message in the thread
     await client.chat.postMessage({
       channel: channelId,
       text: errorMessage,
       thread_ts: threadTs,
     });
+    // Delete the ephemeral "thinking" message ONLY if it was successfully sent initially
     if (ephemeralMessageTs) {
       try {
         await client.chat.delete({
