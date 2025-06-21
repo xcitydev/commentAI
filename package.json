@@ -1,0 +1,21 @@
+{
+  "name": "comment-ai-slackbot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@deepgram/sdk": "^4.4.0",
+    "@google/genai": "^1.5.1",
+    "@ngrok/ngrok": "^1.5.1",
+    "@slack/bolt": "^4.4.0",
+    "apify-client": "^2.12.5",
+    "dotenv": "^16.5.0",
+    "node-fetch": "^2.7.0"
+  }
+}

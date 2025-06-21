@@ -1,0 +1,24 @@
+# Node modules
+node_modules/
+.npm
+
+# dotenv environment variables file
+.env
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+.ipynb_checkpoints/
+
+# IDE specific files
+.vscode/
+.idea/
+
+# Vercel specific (if using Vercel CLI development features)
+.vercel/
