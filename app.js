@@ -1,9 +1,9 @@
-// app.js (This file will be deployed as a Google Cloud Function)
+// app.js (This file will be deployed as a Google Cloud Run service)
 
 // Import the Bolt App and ExpressReceiver classes
 const { App, ExpressReceiver } = require("@slack/bolt");
 // Load environment variables from .env file for local development ONLY.
-// On Google Cloud Functions, environment variables are set directly in the function settings.
+// On Google Cloud Run, environment variables are set directly in the service settings.
 require("dotenv").config();
 
 // Import external SDKs for Instagram scraping, transcription, and AI generation
@@ -16,6 +16,10 @@ const fetch = require("node-fetch"); // Required for downloading images. Ensure 
 // Import the TEAM_SOP constant from its separate file
 // Ensure team_sop.js is located in the same directory as this app.js file in your deployment bundle.
 const { TEAM_SOP } = require("./team_sop");
+
+// Define the port your local server will listen on.
+// Cloud Run injects the PORT environment variable.
+const PORT = process.env.PORT || 8080; // Default to 8080 as a common Cloud Run port
 
 // Declare a variable to store the bot's user ID.
 // This will be populated from process.env.SLACK_BOT_USER_ID or fetched on cold start.
@@ -31,7 +35,7 @@ const receiver = new ExpressReceiver({
 });
 
 // Initialize the Bolt App using the receiver.
-// appToken and socketMode are NOT used for Cloud Functions as it's HTTP-based.
+// appToken and socketMode are NOT used for Cloud Run as it's HTTP-based.
 const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
   receiver: receiver,
@@ -395,7 +399,7 @@ async function generateCommentForLink(
     console.log(`Successfully generated and posted comments for ${url}`);
   } catch (error) {
     console.error("Error in generateCommentForLink:", error);
-    const errorMessage = `Sorry, <@${userId}>, I couldn't generate comments for that link. Error: \`${error.message}\` 😔 Check Cloud Function logs for more details.`;
+    const errorMessage = `Sorry, <@${userId}>, I couldn't generate comments for that link. Error: \`${error.message}\` 😔 Check Cloud Run logs for more details.`; // Changed "Cloud Function" to "Cloud Run"
 
     await client.chat.postMessage({
       channel: channelId,
@@ -553,10 +557,11 @@ app.command("/echo", async ({ command, ack, say }) => {
   }
 });
 
-// --- Startup Logic for Cloud Functions ---
-// This part will be executed during Cloud Function cold starts.
+// --- Main execution block for Cloud Run ---
+// This part starts the HTTP server and listens for requests.
 (async () => {
   try {
+    // Initialize botUserId if not already set by environment variable
     if (!botUserId) {
       const authTestResult = await app.client.auth.test();
       botUserId = authTestResult.user_id;
@@ -565,13 +570,24 @@ app.command("/echo", async ({ command, ack, say }) => {
       console.log(`Bot user ID loaded from environment: ${botUserId}`);
     }
 
-    console.log("Cloud Functions deployment setup: Script initialized.");
+    // Start the Bolt app, listening for HTTP requests on the PORT provided by Cloud Run.
+    // Cloud Run will inject the PORT environment variable (typically 8080).
+    await app.start(PORT);
+    console.log(
+      `⚡️ Bolt app is listening on port ${PORT} for Cloud Run requests!`
+    );
+    console.log(
+      "Ensure your Slack App's Request URLs point to your Cloud Run service URL."
+    );
   } catch (error) {
-    console.error("Initialization error:", error);
+    console.error("Failed to start Bolt app on Cloud Run:", error);
+    // In a production scenario, you might want to log this error to Stackdriver/Cloud Logging
+    // and potentially exit the process if it's a fatal startup error.
+    process.exit(1); // Exit with error code to indicate container failure
   }
 })();
 
-// For Google Cloud Functions deployment, we export the Express app (receiver.app)
-// as a named function, which Google Cloud Functions will execute.
-// The entry point for your Cloud Function should be 'slackBot' when deploying.
-exports.slackBot = receiver.app;
+// For Google Cloud Run, we don't directly 'export' a function for an HTTP trigger.
+// Instead, the container starts a web server (using app.start(PORT)) that listens for requests.
+// Therefore, the `module.exports = receiver.app;` line is removed, as it's for Cloud Functions.
+// The `app.js` file now directly starts the server.
