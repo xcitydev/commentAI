@@ -327,14 +327,16 @@ async function generateCommentForLink(
       numComments: numComments,
     });
 
-    // --- Formatting generated comments ---
     const rawCommentLines = comments
       .split("\n")
       .filter((line) => line.trim() !== "") // Filter out empty lines
       .map((line) => line.trim()); // Trim whitespace from each line
 
-    // Join comments with two newlines for spacing, WITHOUT numbering
-    const finalCommentsOutput = rawCommentLines.join("\n\n");
+    // Format comments with proper spacing
+    const formattedComments = rawCommentLines.map(
+      (comment) => `${comment}\n\n`
+    );
+    const finalCommentsOutput = formattedComments.join("").trim();
     // --- End Formatting ---
 
     // Post the generated comments as a reply in the thread
