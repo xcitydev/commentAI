@@ -377,7 +377,7 @@ async function generateCommentForLink(
 // --- Event Listeners ---
 
 const instagramUrlWithNumberRegex =
-  /(https?:\/\/(?:www\.)?instagram\.com\/(?:p|reel)\/[\w-]+\/?)\s*(\d+)?/i;
+  /(https?:\/\/(?:www\.)?instagram\.com\/(?:p|reel)\/[\w-]+\/?)(?:\s+(\d+))?/i;
 const MAX_COMMENTS = 20;
 
 async function handleInstagramLinkMessage(
@@ -390,32 +390,37 @@ async function handleInstagramLinkMessage(
   const match = messageText.match(instagramUrlWithNumberRegex);
 
   if (match) {
-    const instagramUrl = match[1].trim();
-    let numComments = 5;
-     if (match[2]) {
-       const parsedNum = parseInt(match[2], 10);
-       if (!isNaN(parsedNum)) {
-         if (parsedNum >= 1 && parsedNum <= MAX_COMMENTS) {
-           numComments = parsedNum;
-         } else {
-           await client.chat.postEphemeral({
-             channel: channelId,
-             user: userId,
-             text: `Number must be between 1 and ${MAX_COMMENTS}. Using default 5 comments.`,
-             thread_ts: threadTs,
-           });
-         }
-       }
-     }
+    const instagramUrl = match[1];
+    // The number is in match[2] (group 2)
+    const numString = match[2]; 
+    
+    let numComments = 5; // Default to 5 comments
+    
+    if (numString) {
+      const parsedNum = parseInt(numString, 10);
+      if (!isNaN(parsedNum)) {
+        if (parsedNum >= 1 && parsedNum <= MAX_COMMENTS) {
+          numComments = parsedNum;
+        } else {
+          await client.chat.postEphemeral({
+            channel: channelId,
+            user: userId,
+            text: `Number must be between 1 and ${MAX_COMMENTS}. Using default 5 comments.`,
+            thread_ts: threadTs,
+          });
+        }
+      }
+    }
 
-     // Acknowledge and process
-     await client.chat.postEphemeral({
-       channel: channelId,
-       user: userId,
-       text: `Got your Instagram link! Starting generation of ${numComments} comments for ${instagramUrl}...`,
-       thread_ts: threadTs,
-     });
+    // Acknowledge the event/message
+    await client.chat.postEphemeral({
+      channel: channelId,
+      user: userId,
+      text: `Got your Instagram link! Starting generation of ${numComments} comments for ${instagramUrl}...`,
+      thread_ts: threadTs,
+    });
 
+    // Run the heavy lifting asynchronously
     generateCommentForLink(
       instagramUrl,
       channelId,
