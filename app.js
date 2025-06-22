@@ -417,6 +417,10 @@ async function handleInstagramLinkMessage(
     let instagramUrl = match[1];
     let numComments = 5;
 
+    if (instagramUrl.endsWith(">")) {
+      instagramUrl = instagramUrl.slice(0, -1);
+    }
+
     // Enhanced number extraction
     let numString = match[2];
 
