@@ -34,6 +34,11 @@ const receiver = new ExpressReceiver({
   processBeforeResponse: true,
 });
 
+// Add health check endpoint for Cloud Run
+receiver.router.get("/health", (_, res) => {
+  res.status(200).send("OK");
+});
+
 // Initialize the Bolt App using the receiver.
 // appToken and socketMode are NOT used for Cloud Run as it's HTTP-based.
 const app = new App({
@@ -41,7 +46,27 @@ const app = new App({
   receiver: receiver,
 });
 
-// --- Core Comment Generation Logic (Adapted from your Next.js API route) ---
+// --- Core Comment Generation Logic ---
+
+/**
+ * Normalizes an Instagram URL by removing trailing slashes and query parameters
+ * @param {string} url - The Instagram URL to normalize
+ * @returns {string} - Cleaned URL
+ */
+function normalizeInstagramUrl(url) {
+  // Remove trailing slash
+  if (url.endsWith("/")) {
+    url = url.slice(0, -1);
+  }
+
+  // Remove query parameters
+  const questionMarkIndex = url.indexOf("?");
+  if (questionMarkIndex !== -1) {
+    url = url.substring(0, questionMarkIndex);
+  }
+
+  return url;
+}
 
 /**
  * Scrapes Instagram post data using Apify.
@@ -201,29 +226,6 @@ async function generateComment({
 }
 
 /**
- * A helper function to retry an async operation with exponential backoff.
- * @param {function} operation - The async function to retry.
- * @param {number} retries - The number of retries left.
- * @param {number} delay - The current delay in milliseconds.
- * @returns {Promise<any>} The result of the operation.
- */
-async function retryOperation(operation, retries = 3, delay = 1000) {
-  try {
-    return await operation();
-  } catch (error) {
-    if (retries > 0) {
-      console.warn(
-        `Retry attempt ${retries} failed for operation. Retrying in ${delay}ms... Error: ${error.message}`
-      );
-      await new Promise((res) => setTimeout(res, delay));
-      return retryOperation(operation, retries - 1, delay * 2); // Exponential backoff
-    } else {
-      throw error; // No retries left, throw the error
-    }
-  }
-}
-
-/**
  * Handles the end-to-end process of generating comments for a given Instagram link
  * and posting them as a thread reply in Slack.
  * @param {string} url - The Instagram link.
@@ -242,6 +244,7 @@ async function generateCommentForLink(
   numComments
 ) {
   let ephemeralMessageTs = null; // Initialize to null
+  let timeoutWarning = null; // For long-running operation warning
 
   try {
     // Send an ephemeral "thinking" message
@@ -260,6 +263,20 @@ async function generateCommentForLink(
         `Failed to send initial ephemeral message: ${ephemeralResponse.error}`
       );
     }
+
+    // Set timeout warning for long operations
+    timeoutWarning = setTimeout(async () => {
+      try {
+        await client.chat.postEphemeral({
+          channel: channelId,
+          user: userId,
+          text: `This is taking longer than expected. Still working on it...`,
+          thread_ts: threadTs,
+        });
+      } catch (warningError) {
+        console.warn("Failed to send timeout warning:", warningError);
+      }
+    }, 15000); // 15-second warning
 
     const postData = await scrapeInstagramPost(url);
 
@@ -288,7 +305,6 @@ async function generateCommentForLink(
           console.warn(
             "Image download failed for image post, proceeding without image analysis."
           );
-          // You might choose to throw an error here, or just proceed without image context
         }
       } else {
         console.warn(
@@ -312,9 +328,6 @@ async function generateCommentForLink(
     });
 
     // --- Formatting generated comments ---
-    // Split comments by newlines and filter out empty lines.
-    // The prompt is now designed to prevent leading numbers or introductory phrases,
-    // but this cleanup is still useful as a safeguard.
     const rawCommentLines = comments
       .split("\n")
       .filter((line) => line.trim() !== "") // Filter out empty lines
@@ -327,10 +340,12 @@ async function generateCommentForLink(
     // Post the generated comments as a reply in the thread
     await client.chat.postMessage({
       channel: channelId,
-      // Removed introductory text and numbering
       text: finalCommentsOutput,
       thread_ts: threadTs, // This makes it a thread reply
     });
+
+    // Clear the timeout warning if it hasn't triggered yet
+    clearTimeout(timeoutWarning);
 
     // Delete the ephemeral "thinking" message ONLY if it was successfully sent initially
     if (ephemeralMessageTs) {
@@ -343,13 +358,17 @@ async function generateCommentForLink(
         console.warn(
           `Failed to delete ephemeral message: ${deleteError.message}`
         );
-        // Log the warning but don't re-throw, as comment was already posted
       }
     }
 
-    console.log(`Successfully generated and posted comments for ${url}`);
+    console.log(
+      `Successfully generated and posted ${numComments} comments for ${url}`
+    );
   } catch (error) {
     console.error("Error in generateCommentForLink:", error);
+    // Clear timeout on error
+    if (timeoutWarning) clearTimeout(timeoutWarning);
+
     const errorMessage = `Sorry, <@${userId}>, I couldn't generate comments for that link. Error: \`${error.message}\` 😔`;
 
     // Attempt to post an error message in the thread
@@ -377,7 +396,7 @@ async function generateCommentForLink(
 // --- Event Listeners ---
 
 const instagramUrlWithNumberRegex =
-  /(https?:\/\/(?:www\.)?instagram\.com\/(?:p|reel)\/[\w-]+\/?)(?:\s+(\d+))?/i;
+  /(https?:\/\/(?:www\.)?instagram\.com\/(?:p|reel)\/[\w-]+[^?\s]*)(?:\s+(\d+))?/i;
 const MAX_COMMENTS = 20;
 
 async function handleInstagramLinkMessage(
@@ -389,15 +408,31 @@ async function handleInstagramLinkMessage(
 ) {
   const match = messageText.match(instagramUrlWithNumberRegex);
 
+  console.log("Message text:", messageText);
+  console.log("Regex match:", match);
+
   if (match) {
-    const instagramUrl = match[1];
-    // The number is in match[2] (group 2)
-    const numString = match[2]; 
-    
-    let numComments = 5; // Default to 5 comments
-    
+    let instagramUrl = match[1];
+    let numComments = 5;
+
+    // Enhanced number extraction
+    let numString = match[2];
+
+    // Check if URL itself ends with digits
+    if (!numString) {
+      const urlEndMatch = instagramUrl.match(/(\d+)$/);
+      if (urlEndMatch && urlEndMatch[1]) {
+        numString = urlEndMatch[1];
+        // Remove numbers from URL
+        instagramUrl = instagramUrl.slice(0, -numString.length);
+      }
+    }
+
+    // Parse the number if found
     if (numString) {
       const parsedNum = parseInt(numString, 10);
+      console.log("Parsed number:", parsedNum);
+
       if (!isNaN(parsedNum)) {
         if (parsedNum >= 1 && parsedNum <= MAX_COMMENTS) {
           numComments = parsedNum;
@@ -411,6 +446,12 @@ async function handleInstagramLinkMessage(
         }
       }
     }
+
+    // Normalize the Instagram URL
+    instagramUrl = normalizeInstagramUrl(instagramUrl);
+
+    console.log("Processing Instagram link:", instagramUrl);
+    console.log("Number of comments to generate:", numComments);
 
     // Acknowledge the event/message
     await client.chat.postEphemeral({
@@ -444,27 +485,23 @@ async function handleInstagramLinkMessage(
         thread_ts: threadTs,
       });
     } else {
+      // Optionally respond to other messages
+      // console.log(`No action taken for message: "${messageText}"`);
     }
   }
 }
 
-app.event("app_mention", async ({ event, say }) => {
+app.event("app_mention", async ({ event, client }) => {
   console.log("Received app_mention event (mention):", event);
   const messageText = event.text;
   const userId = event.user;
   const channelId = event.channel;
   const threadTs = event.ts;
 
-  handleInstagramLinkMessage(
-    messageText,
-    userId,
-    channelId,
-    threadTs,
-    app.client
-  );
+  handleInstagramLinkMessage(messageText, userId, channelId, threadTs, client);
 });
 
-app.message(async ({ message, say }) => {
+app.message(async ({ message, client }) => {
   if (
     message.subtype === "bot_message" ||
     message.subtype === "message_changed" ||
@@ -474,7 +511,20 @@ app.message(async ({ message, say }) => {
   ) {
     return;
   }
-  if (botUserId && message.text && message.text.includes(`<@${botUserId}>`)) {
+
+  // Ensure botUserId is populated before checking
+  if (!botUserId) {
+    try {
+      const authTestResult = await client.auth.test();
+      botUserId = authTestResult.user_id;
+      console.log(`Bot user ID fetched via API: ${botUserId}`);
+    } catch (error) {
+      console.error("Failed to fetch bot user ID:", error);
+      return;
+    }
+  }
+
+  if (message.text && message.text.includes(`<@${botUserId}>`)) {
     return;
   }
 
@@ -485,16 +535,10 @@ app.message(async ({ message, say }) => {
   const channelId = message.channel;
   const threadTs = message.ts;
 
-  handleInstagramLinkMessage(
-    messageText,
-    userId,
-    channelId,
-    threadTs,
-    app.client
-  );
+  handleInstagramLinkMessage(messageText, userId, channelId, threadTs, client);
 });
 
-app.command("/echo", async ({ command, ack, say }) => {
+app.command("/echo", async ({ command, ack, client }) => {
   await ack();
   console.log("Received slash command:", command);
 
@@ -504,13 +548,15 @@ app.command("/echo", async ({ command, ack, say }) => {
   const threadTs = command.ts;
 
   if (inputText) {
-    await say({
+    await client.chat.postMessage({
+      channel: channelId,
       text: `Echoing for <@${userId}>: "${inputText}"`,
       thread_ts: threadTs,
     });
     console.log(`Echoed "${inputText}" in channel ${channelId}.`);
   } else {
-    await say({
+    await client.chat.postMessage({
+      channel: channelId,
       text: `Please provide some text to echo, <@${userId}>. Example: \`/echo hello world\``,
       thread_ts: threadTs,
     });
@@ -519,13 +565,17 @@ app.command("/echo", async ({ command, ack, say }) => {
 });
 
 // --- Main execution block for Cloud Run ---
-// This part starts the HTTP server and listens for requests.
 (async () => {
   try {
+    // First attempt to get botUserId from API if not in env
     if (!botUserId) {
-      const authTestResult = await app.client.auth.test();
-      botUserId = authTestResult.user_id;
-      console.log(`Bot user ID fetched via API: ${botUserId}`);
+      try {
+        const authTestResult = await app.client.auth.test();
+        botUserId = authTestResult.user_id;
+        console.log(`Bot user ID fetched via API: ${botUserId}`);
+      } catch (error) {
+        console.error("Failed to fetch bot user ID:", error);
+      }
     } else {
       console.log(`Bot user ID loaded from environment: ${botUserId}`);
     }
