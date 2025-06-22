@@ -449,6 +449,7 @@ async function handleInstagramLinkMessage(
       }
     }
 
+    console.log("Instagram URL:", instagramUrl);
     // Normalize the Instagram URL
     instagramUrl = normalizeInstagramUrl(instagramUrl);
 
