@@ -197,13 +197,14 @@ async function generateComment({
   8. Do NOT use names if they are not unequivocally common human first names (e.g., brand names like 'K3soundzAtl').
   9. No exaggeration or overhyping.
   10. If adding a an emoji to a text dont add more than 1 emoji and only do not more than 3 of this type when asked of 10
+  11. Do not reuse emojies E.g 1. 🙌🙌🙌 2. Let's go 🙌🙌
   `;
 
   if (ownerFullName) {
     fullPromptText += ` The post owner's name is: ${ownerFullName}.`;
   }
 
-  fullPromptText += `\n\nDo NOT include any introductory sentence or numbering in your response. Provide only the comments, each on a new line.`;
+  fullPromptText += `\n\nDo NOT include any introductory sentence or numbering in your response. Provide only the comments, each on a new line with an empty line inbetween each comment.`;
 
   fullPromptText += `\n\nCaption: "${caption}"`;
 
