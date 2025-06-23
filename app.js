@@ -216,8 +216,6 @@ async function generateComment({
 ✅ Tone is chill, casual, and varied
 ✅ Submission format is clean and double spaced
 
-⸻
-
 Use this format every time unless new post-specific instructions are provided. This is the master command for all laid-back comment batches.`;
 
   fullPromptText += `\n\nCaption: "${caption}"`;
