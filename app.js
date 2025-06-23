@@ -326,6 +326,7 @@ async function generateCommentForLink(
       ownerFullName: postData.ownerFullName, // Pass owner name
       numComments: numComments,
     });
+    console.log("Comments:", comments);
 
     const commentBlocks = comments
       .split("\n\n")
