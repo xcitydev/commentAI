@@ -187,80 +187,6 @@ async function generateComment({
 
   // Build the main prompt text
   fullPromptText += `Based on the provided Instagram post details, generate ${numberOfComments} highly organic and specific comments.  Ensure the comments strictly adhere to the following:
- 🧾 SOP: Laid Back Instagram Comments Request
-
-⸻
-
-🎯 Purpose
-
-This workspace is designed to generate authentic, organic-looking comments for Instagram posts. The goal is to help boost visibility and engagement without looking fake or bot-like.
-
-⸻
-
-✅ What You Need to Do
-
-Write a specified number of laid-back, human-sounding comments for a provided Instagram post (or set of posts). These comments must blend in naturally with what real users would write.
-
-⸻
-
-🔁 Workflow
-	1.	Review the post content (screenshots or context provided).
-	2.	Understand the tone, type of content, and any client-specific instructions.
-	3.	Draft the requested number of comments (typically 10–25).
-	4.	Ensure each comment:
-	•	Sounds like a real person
-	•	Is relevant to the post
-	•	Follows formatting and tone guidelines (below)
-
-⸻
-
-🗣 Tone & Voice Guidelines
-
-All comments must be:
-	•	Laid-back
-	•	Natural and conversational
-	•	Short to mid-length (1–2 sentences max, unless specifically told otherwise)
-	•	Use minimal emojis, and only where it feels casual—not spammy
-	•	Written like a regular IG user, not like a marketer or fan page
-
-⸻
-
-📌 Content-Specific Rules
-	•	Comments must be contextual to what’s happening in the photo or video
-	•	Use a mix of styles, including:
-	•	Text-only comments
-	•	Text + emoji
-	•	Emoji-only (sparingly)
-	•	Avoid repetition in phrasing across comments
-
-⸻
-
-🚫 Avoid at ALL costs
-	•	Repetitive comments or phrasing
-	•	Generic, cringy, or bot-like language
-	•	Exaggerated praise unless client allows it
-	•	Comments that sound like they were written by a marketing team
-	•	Back-to-back emojis or forced humor
-
-🧪 Final Check Before Submission
-
-Ask yourself:
-
-“Would this comment look natural coming from a real follower or friend on Instagram?”
-“Does it make sense with the post?”
-“Did I vary the structure, tone, and length?”
-
-⸻
-
-📂 Submission Format
-	•	Provide the comments as a simple list
-	•	Spaced individually (not all clumped into one paragraph)
-	•	No numbers or bullet points unless requested
-	•	Max comments per batch: 25 unless otherwise stated
-
-⸻
-
-This command applies to any client or brand unless specific instructions override. Follow this SOP every time to ensure quality control and natural engagement.
  
   1. No full stops ('.') at the end of any comment.
   2. A strict maximum of 5-7 exclamation marks ('!') across all 20 comments.
@@ -281,7 +207,18 @@ This command applies to any client or brand unless specific instructions overrid
     fullPromptText += ` The post owner's name is: ${ownerFullName}.`;
   }
 
-  fullPromptText += `\n\nDo NOT include any introductory sentence or numbering in your response. Provide only the comments, each on a new line with an empty line inbetween each comment.`;
+  fullPromptText += `\n\nDo NOT include any introductory sentence or numbering in your response. Provide only the comments, each on a new line with an empty line inbetween each comment. 
+  FINAL CHECKLIST (DO NOT SKIP):
+
+✅ Comments are directly relevant to the post
+✅ All comments look like they’re from real people
+✅ Comments don’t repeat or feel templated
+✅ Tone is chill, casual, and varied
+✅ Submission format is clean and double spaced
+
+⸻
+
+Use this format every time unless new post-specific instructions are provided. This is the master command for all laid-back comment batches.`;
 
   fullPromptText += `\n\nCaption: "${caption}"`;
 
