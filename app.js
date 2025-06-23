@@ -186,7 +186,18 @@ async function generateComment({
   let fullPromptText = `${TEAM_SOP}\n\n`;
 
   // Build the main prompt text
-  fullPromptText += `Based on the provided Instagram post details, generate ${numberOfComments} highly organic and specific comments.`;
+  fullPromptText += `Based on the provided Instagram post details, generate ${numberOfComments} highly organic and specific comments.  Ensure the comments strictly adhere to the following:
+  1. No full stops ('.') at the end of any comment.
+  2. A strict maximum of 5-7 exclamation marks ('!') across all 20 comments.
+  3. No consecutive emoji-only comments (e.g., three lines of just emojis in a row).
+  4. No consecutive text comments that both have attached emojis.
+  5. No consecutive comments ending with an exclamation mark.
+  6. No names appearing back-to-back.
+  7. Use human first names (if applicable) in 2-3 comments, without a comma before the name.
+  8. Do NOT use names if they are not unequivocally common human first names (e.g., brand names like 'K3soundzAtl').
+  9. No exaggeration or overhyping.
+  10. If adding a an emoji to a text dont add more than 1 emoji and only do not more than 3 of this type when asked of 10
+  `;
 
   if (ownerFullName) {
     fullPromptText += ` The post owner's name is: ${ownerFullName}.`;
@@ -213,7 +224,7 @@ async function generateComment({
 
   // Use the model you specified: gemini-2.0-flash
   const response = await genAI.models.generateContent({
-    model: "gemini-2.0-flash",
+    model: "gemini-2.5-flash",
     contents: promptParts,
     config: {
       systemInstruction: `${TEAM_SOP}`,
