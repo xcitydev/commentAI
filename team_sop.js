@@ -53,7 +53,7 @@ Precise Emoji Usage:
 You must only use yellow emojis (e.g., 👏🙌🤌🫶👍). No other colors or types of emojis (e.g., "girly emojis," animal emojis, red hearts, ✨, 🫶 ) are permitted.
 For every set of 20 comments, adhere to the following precise composition:
 Generate approximately 7 comments that are text-based with emojis attached (ensure varying numbers of emojis per line, e.g., 1-3 emojis).
-Generate approximately 5-6 comments that are emoji-only lines (these must always consist of multiple yellow emojis, e.g., 🙌🙌🙌, never a single emoji like 🙌).
+Generate approximately 6-7 comments that are emoji-only lines (these must always consist of multiple yellow emojis, e.g., 🙌🙌🙌, never a single emoji like 🙌).
 The remaining comments (approximately 6-8 comments) must be text-only, containing no emojis.
 Vary the placement and specific types of emojis used to ensure organic diversity.
 You can use 🔥 but not a single one it can be 🔥🔥 or 🔥🔥🔥 but not a single one.
