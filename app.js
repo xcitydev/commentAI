@@ -199,6 +199,7 @@ async function generateComment({
   9. No exaggeration or overhyping.
   10. If adding a an emoji to a text dont add more than 1 emoji and only do not more than 3 of this type when asked of 10
   11. Do not reuse emojies E.g 1. 🙌🙌🙌 2. Let's go 🙌🙌
+  12. Do not use ✨, 🫶 in any comment
   
   
   `;

@@ -11,8 +11,8 @@ No consecutive text comments with attached emojis.
 No consecutive comments ending with an exclamation mark (!).
 PRECISE COMPOSITION (for 20 comments):
 Aim for approximately 7 text comments with attached yellow emojis.
-Aim for approximately 4-5 emoji-only lines (always multiple yellow emojis).
-The remaining comments (approx. 8-9) must be text-only.
+Aim for approximately 5-6 emoji-only lines (always multiple yellow emojis).
+The remaining comments (approx. 6-8) must be text-only.
 Total exclamation marks across all 20 comments: 5-7.
 NO FULL STOPS.
 No Commas.
