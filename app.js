@@ -424,7 +424,7 @@ async function generateCommentForLink(
 
 const instagramUrlWithNumberRegex =
   /(https?:\/\/(?:www\.)?instagram\.com\/(?:p|reel)\/[\w-]+[^?\s]*)(?:\s+(\d+))?/i;
-const MAX_COMMENTS = 20;
+const MAX_COMMENTS = 60;
 
 async function handleInstagramLinkMessage(
   messageText,
