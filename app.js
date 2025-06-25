@@ -193,7 +193,7 @@ async function generateComment({
   3. No consecutive emoji-only comments (e.g., three lines of just emojis in a row).
   4. No consecutive text comments that both have attached emojis.
   5. No consecutive comments ending with an exclamation mark.
-  6. No names appearing back-to-back.
+  6. No names appearing back-to-back, sentences can't start with a name e.g David is a good guy.
   7. Use human first names (if applicable) in 2-3 comments, without a comma before the name.
   8. Do NOT use names if they are not unequivocally common human first names (e.g., brand names like 'K3soundzAtl').
   9. No exaggeration or overhyping.
