@@ -203,6 +203,8 @@ async function generateComment({
   13. Some comments should be straight or brief to the point.
   15. Some comments should be more personal and relatable.
   16. In any case you feel like this emoji is needed "👍" replace it with this "🤩"
+  17. Never put an exclamation mark at the end of an emoji (text +emoji comments or emoji only comments).
+  18. Never use the author name at the beginning of a comment.
   
   `;
 
