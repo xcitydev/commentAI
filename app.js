@@ -205,6 +205,8 @@ async function generateComment({
   16. In any case you feel like this emoji is needed "👍" replace it with this "🤩"
   17. Never put an exclamation mark at the end of an emoji (text +emoji comments or emoji only comments).
   18. Never use the author name at the beginning of a comment.
+  19. Never reuse an emoji.
+  20. ensure there's two space in between each comment
   
   `;
 
