@@ -67,6 +67,7 @@ TIPS:
 - you need to know when to use emojis and if the emoji fits the comment before using them
 - some comments should add value to the post
 - ensure the grammar is correct for Example "That accountability is key" is bad but "Accountability is key" is good
+- Never use a comma "," example "this is good, Trey" is bad but "this is good Trey" is good
 
 `,
 };
