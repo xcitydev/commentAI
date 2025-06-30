@@ -18,13 +18,13 @@ module.exports = {
 - No consecutive comments ending with !
 
 3. EMOJI RULES:
-- Only yellow emojis: 👏🙌🤌👍🔥😂🤣🤩💯🚀💪🐐🕊
+- Only yellow emojis and they must fit the post tone: 👏🙌🤌👍🔥😂🤣🤩💯🚀💪🐐🕊
 - BANNED: ✨🫶 (never use)
 - Never put ! after emojis
 - Max 1-2 emojis per comment
 
 4. NAME USAGE:
-- Use first names only if clearly human (e.g., "John") in every 20 it should appear not more than twice
+- Use first names only if clearly human  (e.g., "John") and clearly stated as the owner's name do not generate names that are not the owner's name, in every 20 it should appear not more than twice
 - Never at comment start
 - Max 2-3 name mentions per 20 comments
 - No commas before names ("Great point David" not "David, great point")
