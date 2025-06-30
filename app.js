@@ -131,6 +131,8 @@ async function transcribeVideo(videoUrl) {
   return transcription;
 }
 
+const PROCESSING_DELAY = 5000;
+
 /**
  * Downloads an image from a URL and converts it to a Base64 string.
  * @param {string} imageUrl - The URL of the image.
@@ -556,7 +558,7 @@ async function handleInstagramLinkMessage(
       queueMessage += "I'll start processing it immediately! ⏱️";
     } else {
       queueMessage += `Position in queue: ${queuePosition}. Estimated wait time: ${Math.round(
-        (queuePosition * 5000) / 1000
+        (queuePosition * PROCESSING_DELAY) / 1000
       )} seconds.`;
     }
 
