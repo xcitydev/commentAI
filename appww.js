@@ -17,8 +17,6 @@ const fetch = require("node-fetch"); // Required for downloading images. Ensure 
 // Ensure team_sop.js is located in the same directory as this app.js file in your deployment bundle.
 const { TEAM_SOP } = require("./team_sop");
 
-const queue = [];
-let isProcessing = false;
 // Define the port your local server will listen on.
 // Cloud Run injects the PORT environment variable.
 const PORT = process.env.PORT || 8080; // Default to 8080 as a common Cloud Run port
@@ -210,15 +208,9 @@ async function generateComment({
   
   `;
 
-  fullPromptText += `GENERATION DIRECTIVES:
-- Create ${numComments} organic Instagram comments
-- Sound like a real person who just viewed this post
-- Be specific to these details:
-${ownerFullName ? `- Post creator: ${ownerFullName}\n` : ""}
-- CAPTION: "${caption}"
-
-- MUST FOLLOW ALL RULES IN SOP
-- OUTPUT FORMAT: Only comments separated by blank lines`;
+  if (ownerFullName) {
+    fullPromptText += ` The post owner's name is: ${ownerFullName}.`;
+  }
 
   fullPromptText += `\n\nDo NOT include any introductory sentence or numbering in your response. Provide only the comments, each on a new line with an empty line inbetween each comment. 
   FINAL CHECKLIST (DO NOT SKIP):
@@ -228,7 +220,10 @@ ${ownerFullName ? `- Post creator: ${ownerFullName}\n` : ""}
 ✅ Comments don’t repeat or feel templated
 ✅ Tone is chill, casual, and varied
 ✅ Submission format is clean and double spaced
-`;
+
+Use this format every time unless new post-specific instructions are provided. This is the master command for all laid-back comment batches.`;
+
+  fullPromptText += `\n\nCaption: "${caption}"`;
 
   if (transcription) {
     fullPromptText += `\nVideo Transcription:\n"${transcription}"`;
@@ -400,26 +395,6 @@ async function generateCommentForLink(
     );
   } catch (error) {
     console.error("Error in generateCommentForLink:", error);
-
-    console.error("Full processing error:", error);
-
-    let userMessage = `Sorry <@${userId}>, I couldn't process that link. `;
-
-    if (error.message.includes("Post not found")) {
-      userMessage += "The post might be private or unavailable.";
-    } else if (error.message.includes("transcription error")) {
-      userMessage += "I had trouble with the video audio.";
-    } else if (error.message.includes("Gemini")) {
-      userMessage += "Our comment system had an issue.";
-    } else {
-      userMessage += "Please try a different post.";
-    }
-
-    await client.chat.postMessage({
-      channel: channelId,
-      text: userMessage,
-      thread_ts: threadTs,
-    });
     // Clear timeout on error
     if (timeoutWarning) clearTimeout(timeoutWarning);
 
@@ -447,39 +422,12 @@ async function generateCommentForLink(
   }
 }
 
-async function processQueue() {
-  if (isProcessing || queue.length === 0) return;
-
-  isProcessing = true;
-  const { url, channelId, threadTs, client, userId, numComments } =
-    queue.shift();
-
-  try {
-    await generateCommentForLink(
-      url,
-      channelId,
-      threadTs,
-      client,
-      userId,
-      numComments
-    );
-  } catch (error) {
-    console.error("Queue processing error:", error);
-  }
-
-  // Add delay before next processing
-  await new Promise((resolve) => setTimeout(resolve, 5000));
-  isProcessing = false;
-  processQueue();
-}
-
 // --- Event Listeners ---
 
 const instagramUrlWithNumberRegex =
   /(https?:\/\/(?:www\.)?instagram\.com\/(?:p|reel)\/[\w-]+[^?\s]*)(?:\s+(\d+))?/i;
 const MAX_COMMENTS = 60;
 
-// Updated handleInstagramLinkMessage function
 async function handleInstagramLinkMessage(
   messageText,
   userId,
@@ -496,7 +444,6 @@ async function handleInstagramLinkMessage(
     let instagramUrl = match[1];
     let numComments = 5;
 
-    // Clean up URL formatting
     if (instagramUrl.endsWith(">")) {
       instagramUrl = instagramUrl.slice(0, -1);
     }
@@ -509,6 +456,7 @@ async function handleInstagramLinkMessage(
       const urlEndMatch = instagramUrl.match(/(\d+)$/);
       if (urlEndMatch && urlEndMatch[1]) {
         numString = urlEndMatch[1];
+        // Remove numbers from URL
         instagramUrl = instagramUrl.slice(0, -numString.length);
       }
     }
@@ -532,80 +480,48 @@ async function handleInstagramLinkMessage(
       }
     }
 
+    console.log("Instagram URL:", instagramUrl);
     // Normalize the Instagram URL
     instagramUrl = normalizeInstagramUrl(instagramUrl);
 
     console.log("Processing Instagram link:", instagramUrl);
     console.log("Number of comments to generate:", numComments);
 
-    // Add task to queue
-    const queuePosition = queue.length + 1;
-    queue.push({
-      url: instagramUrl,
+    // Acknowledge the event/message
+    await client.chat.postEphemeral({
+      channel: channelId,
+      user: userId,
+      text: `Got your Instagram link! Starting generation of ${numComments} comments for ${instagramUrl}...`,
+      thread_ts: threadTs,
+    });
+
+    // Run the heavy lifting asynchronously
+    generateCommentForLink(
+      instagramUrl,
       channelId,
       threadTs,
       client,
       userId,
-      numComments,
-    });
-
-    // Notify user about queue position
-    let queueMessage = `<@${userId}>: Your Instagram link has been added to the queue. `;
-
-    if (queuePosition === 1) {
-      queueMessage += "I'll start processing it immediately! ⏱️";
-    } else {
-      queueMessage += `Position in queue: ${queuePosition}. Estimated wait time: ${Math.round(
-        (queuePosition * 5000) / 1000
-      )} seconds.`;
-    }
-
-    await client.chat.postEphemeral({
-      channel: channelId,
-      user: userId,
-      text: queueMessage,
-      thread_ts: threadTs,
-    });
-
-    // Start processing if not already running
-    if (!isProcessing) {
-      processQueue();
-    }
+      numComments
+    );
   } else {
-    // Handle non-link messages
-    const lowerText = messageText.toLowerCase();
-
-    if (lowerText.includes("hello") || lowerText.includes("hi")) {
+    if (
+      messageText.toLowerCase().includes("hello") ||
+      messageText.toLowerCase().includes("hi")
+    ) {
       await client.chat.postMessage({
-        channel: channelId,
-        text: `Hey <@${userId}>! 👋 Send me an Instagram link to generate comments (add a number like "link 5" for custom amount).`,
+        text: `Hello there, <@${userId}>! Send me an Instagram link (with an optional number like 'link 5') to get comments!`,
         thread_ts: threadTs,
       });
-    } else if (lowerText.includes("how are you")) {
+    } else if (messageText.toLowerCase().includes("how are you")) {
       await client.chat.postMessage({
-        channel: channelId,
-        text: `Doing great, thanks for asking! 😊 Ready to generate comments whenever you send an Instagram link.`,
+        text: `I'm doing well, thank you for asking, <@${userId}>! Send me an Instagram link to get comments!`,
         thread_ts: threadTs,
       });
-    } else if (lowerText.includes("status") || lowerText.includes("queue")) {
-      const statusMessage =
-        queue.length === 0
-          ? "✅ No links in queue. Send me an Instagram link!"
-          : `📊 Current queue status:\n${queue
-              .map(
-                (item, index) =>
-                  `${index + 1}. ${item.url} (${item.numComments} comments)`
-              )
-              .join("\n")}`;
-
-      await client.chat.postEphemeral({
-        channel: channelId,
-        user: userId,
-        text: statusMessage,
-        thread_ts: threadTs,
-      });
+    } else {
+      // Optionally respond to other messages
+      // console.log(`No action taken for message: "${messageText}"`);
     }
-    // No response for other messages
   }
 }
 
