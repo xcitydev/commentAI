@@ -12,16 +12,16 @@ module.exports = {
 - Mix comment types organically:
   * Text-only (e.g., "This hit home")
   * Text + 1-2 yellow emojis (e.g., "Softest post today🙏")
-  * Emoji-only (multiple yellow emojis max 3, e.g., "🤣🤣")
+  * Emoji-only (multiple yellow emojis max 5, e.g., "🤩🤩🤩")
 - NEVER consecutive emoji-only comments
 - Max 5-7 exclamation marks per 20 comments
 - No consecutive comments ending with !
 
 3. EMOJI RULES:
 - Only yellow emojis and they must fit the post tone: 👏🙌🤌👍🔥😂🤣🤩💯🚀💪🐐🕊
-- BANNED: ✨🫶 (never use)
+- BANNED: ✨🫶🕊️ (never use)
 - Never put ! after emojis
-- Max 1-2 emojis per comment
+- Max 1-5 emojis per comment
 
 4. NAME USAGE:
 - Use first names only if clearly human  (e.g., "John") and clearly stated as the owner's name do not generate names that are not the owner's name, in every 20 it should appear not more than twice
