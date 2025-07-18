@@ -1,67 +1,42 @@
-// app.js (This file will be deployed as a Google Cloud Run service)
 
-// Import the Bolt App and ExpressReceiver classes
 const { App, ExpressReceiver } = require("@slack/bolt");
-// Load environment variables from .env file for local development ONLY.
-// On Google Cloud Run, environment variables are set directly in the service settings.
-require("dotenv").config();
 
-// Import external SDKs for Instagram scraping, transcription, and AI generation
+require("dotenv").config();
 const { ApifyClient } = require("apify-client");
 const { createClient } = require("@deepgram/sdk");
-// Using your specified GoogleGenAI import
 const { GoogleGenAI } = require("@google/genai");
-const fetch = require("node-fetch"); // Required for downloading images. Ensure node-fetch@2 is installed for CommonJS.
-
-// Import the TEAM_SOP constant from its separate file
-// Ensure team_sop.js is located in the same directory as this app.js file in your deployment bundle.
+const fetch = require("node-fetch");
 const { TEAM_SOP } = require("./team_sop");
 
 const queue = [];
 let isProcessing = false;
-// Define the port your local server will listen on.
-// Cloud Run injects the PORT environment variable.
-const PORT = process.env.PORT || 8080; // Default to 8080 as a common Cloud Run port
-
-// Declare a variable to store the bot's user ID.
-// This will be populated after the app starts listening.
+const PORT = process.env.PORT || 8080; 
 let botUserId = process.env.SLACK_BOT_USER_ID || null;
-
-// Initialize the ExpressReceiver first.
-// This will create an Express app internally that handles incoming HTTP requests from Slack.
 const receiver = new ExpressReceiver({
   signingSecret: process.env.SLACK_SIGNING_SECRET,
-  // processBeforeResponse: true is recommended for serverless functions
-  // to acknowledge Slack requests quickly while async work continues.
   processBeforeResponse: true,
 });
 
-// Add health check endpoint for Cloud Run
 receiver.router.get("/health", (_, res) => {
   res.status(200).send("OK");
 });
 
-// Initialize the Bolt App using the receiver.
-// appToken and socketMode are NOT used for Cloud Run as it's HTTP-based.
 const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
   receiver: receiver,
 });
 
-// --- Core Comment Generation Logic ---
+
 
 /**
- * Normalizes an Instagram URL by removing trailing slashes and query parameters
- * @param {string} url - The Instagram URL to normalize
- * @returns {string} - Cleaned URL
+ * @param {string} url 
+ * @returns {string} 
  */
 function normalizeInstagramUrl(url) {
-  // Remove trailing slash
   if (url.endsWith("/")) {
     url = url.slice(0, -1);
   }
 
-  // Remove query parameters
   const questionMarkIndex = url.indexOf("?");
   if (questionMarkIndex !== -1) {
     url = url.substring(0, questionMarkIndex);
@@ -71,9 +46,8 @@ function normalizeInstagramUrl(url) {
 }
 
 /**
- * Scrapes Instagram post data using Apify.
- * @param {string} url - The Instagram post URL.
- * @returns {Promise<object>} - Object containing caption, imageUrl, videoUrl, etc.
+ * @param {string} url 
+ * @returns {Promise<object>} 
  */
 async function scrapeInstagramPost(url) {
   const client = new ApifyClient({ token: process.env.APIFY_TOKEN });
@@ -105,9 +79,8 @@ async function scrapeInstagramPost(url) {
 }
 
 /**
- * Transcribes video from a URL using Deepgram.
- * @param {string} videoUrl - The URL of the video to transcribe.
- * @returns {Promise<string>} - The transcription text.
+ * @param {string} videoUrl 
+ * @returns {Promise<string>} 
  */
 async function transcribeVideo(videoUrl) {
   const deepgram = createClient(process.env.DEEPGRAM_API_KEY);
@@ -131,12 +104,12 @@ async function transcribeVideo(videoUrl) {
   return transcription;
 }
 
-const PROCESSING_DELAY = 5000;
+const PROCESSING_DELAY = 15000;
 
 /**
- * Downloads an image from a URL and converts it to a Base64 string.
- * @param {string} imageUrl - The URL of the image.
- * @returns {Promise<object>} - An object with mimeType and base64 data, or null if failed.
+ 
+ * @param {string} imageUrl 
+ * @returns {Promise<object>} 
  */
 async function downloadImageAsBase64(imageUrl) {
   try {
@@ -162,14 +135,14 @@ async function downloadImageAsBase64(imageUrl) {
 }
 
 /**
- * Generates comments using Google Gemini API, adapting input based on content type.
- * @param {object} params - Parameters for comment generation.
- * @param {string} params.caption - Instagram post caption.
- * @param {string} [params.transcription] - Video transcription (optional).
- * @param {object} [params.imageData] - { mimeType: string, data: string } Base64 image data (optional).
- * @param {string} [params.ownerFullName] - The full name of the post owner.
- * @param {number} [params.numComments=5] - The number of comments to generate.
- * @returns {Promise<string>} - The generated comments as a single string.
+
+ * @param {object} params 
+ * @param {string} params.caption 
+ * @param {string} [params.transcription] 
+ * @param {object} [params.imageData] 
+ * @param {string} [params.ownerFullName]
+ * @param {number} [params.numComments=5] 
+ * @returns {Promise<string>} - 
  */
 async function generateComment({
   caption,
@@ -177,19 +150,21 @@ async function generateComment({
   imageData,
   ownerFullName,
   numComments,
+  language
 }) {
   console.log("Generating comment with Gemini...");
-  // Using your specified GoogleGenAI import and instantiation
   const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-  const numberOfComments = numComments || 5; // Generate a reasonable number of comments for Slack
+  const numberOfComments = numComments || 5; 
 
   let promptParts = [];
 
-  // Prepend TEAM_SOP to the main prompt text
   let fullPromptText = `${TEAM_SOP}\n\n`;
 
-  // Build the main prompt text
+  if (language !== "english") {
+    fullPromptText += `\n\nGenerate all comments in ${language}. Do not translate the instructions, only the comments should be in ${language}.`;
+  }
+
   fullPromptText += `Based on the provided Instagram post details, generate ${numberOfComments} highly organic and specific comments.  Ensure the comments strictly adhere to the following:
  
   1. No full stops ('.') at the end of any comment.
@@ -236,18 +211,15 @@ ${ownerFullName ? `- Post creator: ${ownerFullName}\n` : ""}
     fullPromptText += `\nVideo Transcription:\n"${transcription}"`;
     promptParts.push({ text: fullPromptText });
   } else if (imageData && imageData.data && imageData.mimeType) {
-    // For image posts, add prompt text and image data as separate parts
     fullPromptText += `\nAnalyze the provided image and caption.`;
     promptParts.push(
       { text: fullPromptText },
       { inlineData: { mimeType: imageData.mimeType, data: imageData.data } }
     );
   } else {
-    // Fallback if no video or image data, just use caption
     promptParts.push({ text: fullPromptText });
   }
 
-  // Use the model you specified: gemini-2.0-flash
   const response = await genAI.models.generateContent({
     model: "gemini-2.5-flash",
     contents: promptParts,
@@ -262,14 +234,13 @@ ${ownerFullName ? `- Post creator: ${ownerFullName}\n` : ""}
 }
 
 /**
- * Handles the end-to-end process of generating comments for a given Instagram link
- * and posting them as a thread reply in Slack.
- * @param {string} url - The Instagram link.
- * @param {string} channelId - The Slack channel ID.
- * @param {string} threadTs - The Slack message timestamp for threading.
- * @param {function} client - The Slack WebClient instance.
- * @param {string} userId - The ID of the user who sent the link.
- * @param {number} numComments - The number of comments to generate.
+ 
+ * @param {string} url 
+ * @param {string} channelId 
+ * @param {string} threadTs 
+ * @param {function} client 
+ * @param {string} userId 
+ * @param {number} numComments 
  */
 async function generateCommentForLink(
   url,
@@ -277,7 +248,8 @@ async function generateCommentForLink(
   threadTs,
   client,
   userId,
-  numComments
+  numComments,
+  language
 ) {
   let ephemeralMessageTs = null; // Initialize to null
   let timeoutWarning = null; // For long-running operation warning
@@ -361,6 +333,7 @@ async function generateCommentForLink(
       imageData: imageData, // Pass image data if available
       ownerFullName: postData.ownerFullName, // Pass owner name
       numComments: numComments,
+      language: language
     });
     console.log("Comments:", comments);
 
@@ -453,7 +426,7 @@ async function processQueue() {
   if (isProcessing || queue.length === 0) return;
 
   isProcessing = true;
-  const { url, channelId, threadTs, client, userId, numComments } =
+  const { url, channelId, threadTs, client, userId, numComments, language } =
     queue.shift();
 
   try {
@@ -463,14 +436,15 @@ async function processQueue() {
       threadTs,
       client,
       userId,
-      numComments
+      numComments,
+      language
     );
   } catch (error) {
     console.error("Queue processing error:", error);
   }
 
   // Add delay before next processing
-  await new Promise((resolve) => setTimeout(resolve, 5000));
+  await new Promise((resolve) => setTimeout(resolve, 15000));
   isProcessing = false;
   processQueue();
 }
@@ -481,6 +455,14 @@ const instagramUrlWithNumberRegex =
   /(https?:\/\/(?:www\.)?instagram\.com\/(?:p|reel)\/[\w-]+[^?\s]*)(?:\s+(\d+))?/i;
 const MAX_COMMENTS = 60;
 
+const SUPPORTED_LANGUAGES = [
+  "english",
+  "spanish",
+  "french",
+  "german",
+  "portuguese",
+  "italian",
+];
 // Updated handleInstagramLinkMessage function
 async function handleInstagramLinkMessage(
   messageText,
