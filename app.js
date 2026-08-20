@@ -4,9 +4,8 @@ const { App, ExpressReceiver } = require("@slack/bolt");
 require("dotenv").config();
 const { ApifyClient } = require("apify-client");
 const { createClient } = require("@deepgram/sdk");
-const { GoogleGenAI } = require("@google/genai");
 const fetch = require("node-fetch");
-const { TEAM_SOP } = require("./team_sop");
+const { generateFilteredComments } = require("./comment_pipeline");
 
 const queue = [];
 let isProcessing = false;
@@ -134,103 +133,23 @@ async function downloadImageAsBase64(imageUrl) {
   }
 }
 
-/**
-
- * @param {object} params 
- * @param {string} params.caption 
- * @param {string} [params.transcription] 
- * @param {object} [params.imageData] 
- * @param {string} [params.ownerFullName]
- * @param {number} [params.numComments=5] 
- * @returns {Promise<string>} - 
- */
 async function generateComment({
   caption,
   transcription,
   imageData,
   ownerFullName,
   numComments,
-  language
+  language,
 }) {
-  console.log("Generating comment with Gemini...");
-  const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-  const numberOfComments = numComments || 5; 
-
-  let promptParts = [];
-
-  let fullPromptText = `${TEAM_SOP}\n\n`;
-
-  if (language !== "english") {
-    fullPromptText += `\n\nGenerate all comments in ${language}. Do not translate the instructions, only the comments should be in ${language}.`;
-  }
-
-  fullPromptText += `Based on the provided Instagram post details, generate ${numberOfComments} highly organic and specific comments.  Ensure the comments strictly adhere to the following:
- 
-  1. No full stops ('.') at the end of any comment.
-  2. A strict maximum of 5-7 exclamation marks ('!') across all 20 comments.
-  3. No consecutive emoji-only comments (e.g., three lines of just emojis in a row).
-  4. No consecutive text comments that both have attached emojis.
-  5. No consecutive comments ending with an exclamation mark.
-  6. No names appearing back-to-back, sentences can't start with a name e.g David is a good guy.
-  7. Use human first names (if applicable) in 2-3 comments, without a comma before the name.
-  8. Do NOT use names if they are not unequivocally common human first names (e.g., brand names like 'K3soundzAtl').
-  9. No exaggeration or overhyping.
-  10. If adding a an emoji to a text dont add more than 1 emoji and only do not more than 3 of this type when asked of 10
-  11. Do not reuse emojies E.g 1. 🙌🙌🙌 2. Let's go 🙌🙌
-  12. Do not use ✨, 🫶 in any comment
-  13. Some comments should be straight or brief to the point.
-  15. Some comments should be more personal and relatable.
-  16. In any case you feel like this emoji is needed "👍" replace it with this "🤩"
-  17. Never put an exclamation mark at the end of an emoji (text +emoji comments or emoji only comments).
-  18. Never use the author name at the beginning of a comment.
-  
-  `;
-
-  fullPromptText += `GENERATION DIRECTIVES:
-- Create ${numComments} organic Instagram comments
-- Sound like a real person who just viewed this post
-- Be specific to these details:
-${ownerFullName ? `- Post creator: ${ownerFullName}\n` : ""}
-- CAPTION: "${caption}"
-
-- MUST FOLLOW ALL RULES IN SOP
-- OUTPUT FORMAT: Only comments separated by blank lines`;
-
-  fullPromptText += `\n\nDo NOT include any introductory sentence or numbering in your response. Provide only the comments, each on a new line with an empty line inbetween each comment. 
-  FINAL CHECKLIST (DO NOT SKIP):
-
-✅ Comments are directly relevant to the post
-✅ All comments look like they’re from real people
-✅ Comments don’t repeat or feel templated
-✅ Tone is chill, casual, and varied
-✅ Submission format is clean and double spaced
-`;
-
-  if (transcription) {
-    fullPromptText += `\nVideo Transcription:\n"${transcription}"`;
-    promptParts.push({ text: fullPromptText });
-  } else if (imageData && imageData.data && imageData.mimeType) {
-    fullPromptText += `\nAnalyze the provided image and caption.`;
-    promptParts.push(
-      { text: fullPromptText },
-      { inlineData: { mimeType: imageData.mimeType, data: imageData.data } }
-    );
-  } else {
-    promptParts.push({ text: fullPromptText });
-  }
-
-  const response = await genAI.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: promptParts,
-    config: {
-      systemInstruction: `${TEAM_SOP}`,
-    },
+  const comments = await generateFilteredComments({
+    caption,
+    transcription,
+    imageData,
+    ownerFullName,
+    numComments: numComments || 5,
+    language: language || "english",
   });
-
-  const text = response.text;
-  console.log("Generated text:", text);
-  return text;
+  return comments.join("\n\n");
 }
 
 /**
@@ -453,7 +372,7 @@ async function processQueue() {
 
 const instagramUrlWithNumberRegex =
   /(https?:\/\/(?:www\.)?instagram\.com\/(?:p|reel)\/[\w-]+[^?\s]*)(?:\s+(\d+))?/i;
-const MAX_COMMENTS = 60;
+const MAX_COMMENTS = 150;
 
 const SUPPORTED_LANGUAGES = [
   "english",
@@ -531,6 +450,7 @@ async function handleInstagramLinkMessage(
       client,
       userId,
       numComments,
+      language: "english",
     });
 
     // Notify user about queue position
