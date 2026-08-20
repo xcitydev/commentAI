@@ -104,7 +104,20 @@ const BANNED_PHRASES = [
   "just so deep","so deep","yet so deep",
   "reflecting on this","reflecting on that",
   "shared this with","shared this verse","shared this post",
-  "brings to the forefront","brings to light"
+  "brings to the forefront","brings to light",
+  "beautiful journey","wonderful journey","incredible journey","amazing journey",
+  "beautiful chapter","new chapter","next chapter","another chapter","your chapter","this chapter","your journey","the journey",
+  "here's to","cheers to","toast to",
+  "true masterpiece","true marvel","true gem","true testament","true blessing","true beauty","true legend","true classic","true work of art",
+  "design marvel","architectural marvel","architectural details","architectural masterpiece",
+  "such incredible","such beautiful","such stunning","such powerful","such an incredible","such a beautiful","such a powerful",
+  "has been faithful","has truly been","god is truly","god has truly","god has been so",
+  "my mom","my mother","my dad","my father","my parents","my sister","my brother","my sibling",
+  "my husband","my wife","my spouse","my partner","my boyfriend","my girlfriend","my fiance","my fiancé","my fiancee","my ex","my in-laws","my inlaws","my in laws",
+  "my kids","my kid","my child","my children","my daughter","my son","my baby","my babies","my little one","my little ones",
+  "my grandma","my grandmother","my grandpa","my grandfather","my nan","my papa","my mama",
+  "my aunt","my uncle","my cousin","my nephew","my niece","my family","my folks","my relatives",
+  "reminds me of my","makes me think of my","just like my","exactly like my","same as my"
 ];
 
 function hasBannedPhrase(text) {
@@ -415,7 +428,19 @@ These work because they REACT to a specific moment/fact/quote. Not one of them r
 
 Every one of the above sounds like an AI summarizing the post back to the creator. Do NOT produce comments of this shape.
 
+## CRITICAL — REAL ACCOUNTS RULE (violation = comment is unusable)
+These comments post from a real person's Instagram account. You do NOT know that person's family, home, job, or life. Therefore:
+- NEVER reference personal relationships or family: no "my mom", "my sister", "my dad", "my husband", "my wife", "my kids", "my daughter", "my son", "my grandma", "my aunt", "my uncle", "my cousin", "my boyfriend", "my girlfriend", "my ex", "my family".
+- NEVER invent personal life scenarios ("my kitchen looks the same", "my dog does this", "my kids love this").
+- First-person is fine when it's about the CONTENT ("I've actually tried this", "Never thought about it that way") — the ban is on fabricated personal life.
+
+## THE ONE QUESTION (apply before every comment)
+Would a real follower scrolling their feed type this without overthinking it — or does it read like a prepared marketing list? If the second, do NOT produce it. Marketing-copy energy is the exact failure mode we are eliminating.
+
 ## HARD BANS (never generate)
+- Stock life-milestone phrases: "beautiful journey", "amazing journey", "your journey", "next chapter", "another chapter", "your chapter", "this chapter", "here's to another chapter", "here's to X", "cheers to X"
+- Stock praise combos flagged by clients: "true masterpiece", "true design marvel", "true marvel", "such incredible architectural details", "such incredible X", "such a beautiful X"
+- Stock religious templates: "God has truly been faithful", "God has been so [adj]", "has truly been [adj]"
 - Meta-commentary that rephrases the post's message: "captures the value/essence perfectly", "sets the standard", "brings it to the forefront", "highlighting the word", "reminds me of the importance", "always hits home", "such a clear [noun]"
 - "This [X] is [Y]" praise shape ("This approach is strong", "This command is essential")
 - Quote-then-definition ("'X' means trust", "'X' captures perfectly", "'X' is the value")
@@ -442,8 +467,11 @@ ${puncRules}
 - Never two consecutive comments ending in "!".
 - Never "!!" or "‼️".
 
-## STRUCTURE
+## STRUCTURE & VARIATION (this is the client's #1 complaint — take it seriously)
 - ${numComments} UNIQUE comments — no near-duplicates, no rephrasings of each other.
+- OPENERS must vary across the batch. Do NOT let any single opener (e.g. "Never thought about…", "Reminds me of…", "The way…") appear more than 2x. Rotate freely: some comments open with a reaction word ("Wow", "Damn", "Rough"), some with a quote-fragment, some with a personal I-statement, some with an observation about a specific moment, some just emoji.
+- LENGTH must vary. If you write 5 comments in a row of similar length, that's a fail. Interleave short/medium/long.
+- STRUCTURE must vary. Do not repeat "[praise adjective] [topic-noun] [name]" three times ("Powerful command Annie", "Beautiful message Annie", "Deep truth Annie"). If two adjacent comments share a shape, rewrite one.
 - Do not put two identical emoji-only comments back to back.
 - No numbering, no bullets, no intro line, no outro line.
 - Separate each comment with ONE blank line.
