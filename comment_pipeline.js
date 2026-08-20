@@ -360,28 +360,32 @@ You are writing ${numComments} Instagram comments for a post by ${ownerFullName 
 The #1 failure mode: comments that sound like an AI summarizing or meta-commenting on the post. A real viewer does NOT rephrase the post's message back at the creator — they REACT to it like a human scrolling their feed.
 
 ## MIX (this is the shape of the batch)
-- ~${emojiOnlyTarget} comments must be EMOJI-ONLY (1–3 emojis, no text, no punctuation)
+- ~${emojiOnlyTarget} comments must be EMOJI-ONLY (2 to 5 emojis of the SAME type, no text, no punctuation)
 - ~${shortTextCount} SHORT text comments (2–6 words, casual)
 - ~${mediumTextCount} MEDIUM text comments (7–14 words)
 - ~${longTextCount} LONGER two-beat comments (15–28 words, with one natural pause)
 
 ## EMOJI-ONLY RULES (this is ~40% of the batch)
+STRICT: NEVER a single emoji on its own. Every emoji-only comment must be 2, 3, 4, or 5 of the same emoji repeated.
+- ❌ "🔥"    ❌ "🙏"    ❌ "👏"    ❌ "💪"    ← single emoji is BANNED
+- ✅ "🔥🔥"   ✅ "🔥🔥🔥"   ✅ "🙏🙏"   ✅ "👏👏👏"   ✅ "💪💪💪💪"
+
 Match the emoji to the tone of a specific moment in the post. Do not pick randomly.
-- Something moving / sacred / heavy / respect for pain → 🙏 or 🙏🙏
-- Something impressive / hard-earned / grit → 💪 or 💪💪
-- Applause / well-done / respect → 👏 or 🙌 or 👏👏
-- Wild / hot / can't-believe-it → 🔥 or 🔥🔥 or 🔥🔥🔥
-- Genuinely funny → 😂 or 🤣 or 😂😂
-- Cosigning hard / truth → 💯 or 👌
-- Chef's kiss / precise / immaculate detail → 🤌
-- Sacred / peace / rest in peace → 🕊
-- GOAT / legend → 🐐
+- Something moving / sacred / heavy / respect for pain → 🙏🙏 or 🙏🙏🙏
+- Something impressive / hard-earned / grit → 💪💪 or 💪💪💪
+- Applause / well-done / respect → 👏👏 or 🙌🙌 or 👏👏👏
+- Wild / hot / can't-believe-it → 🔥🔥 or 🔥🔥🔥
+- Genuinely funny → 😂😂 or 🤣🤣 or 😂😂😂
+- Cosigning hard / truth → 💯💯 or 👌👌
+- Chef's kiss / precise / immaculate detail → 🤌🤌
+- Sacred / peace / rest in peace → 🕊🕊
+- GOAT / legend → 🐐🐐
 
 DIVERSIFY the emoji-only comments:
-- Do NOT use the SAME single emoji in more than 3 emoji-only comments across the batch.
-- Vary the COUNT (some 1x, some 2x, some 3x). "🔥" and "🔥🔥" and "🔥🔥🔥" are all fine as different comments.
-- Do NOT combine emojis from different tones in one comment (no "🙏💪🔥").
-- Only ONE type of emoji per emoji-only comment (repeated is fine: "🙏🙏" ok, "🙏💪" not ok).
+- Do NOT use the SAME emoji type in more than 3 emoji-only comments across the batch.
+- Vary the COUNT (some 2x, some 3x, some 4x, occasional 5x). "🔥🔥" and "🔥🔥🔥" and "🔥🔥🔥🔥" all count as distinct comments.
+- Do NOT combine different emojis in one comment (no "🙏💪", no "🙏🔥🔥"). One type only, repeated.
+- Never more than 5 of the same emoji in a row.
 
 ## TEXT COMMENTS — SOUND LIKE THIS (human)
 "Would drink a bottle of wine to get through the day… that's rough. Glad she found her way out🙏"
@@ -471,8 +475,13 @@ function evaluateComment(comment, ctx) {
   if (!comment) return { ok: false, reason: "too-short" };
   const emojiCount = (comment.match(EMOJI_REGEX) || []).length;
   const strippedForLen = comment.replace(EMOJI_REGEX, "").trim();
-  if (strippedForLen.length === 0) {
-    if (emojiCount === 0) return { ok: false, reason: "too-short" };
+  const isEmojiOnlyLine = strippedForLen.length === 0 && emojiCount > 0;
+  if (isEmojiOnlyLine) {
+    if (emojiCount < 2) return { ok: false, reason: "single-emoji" };
+    if (emojiCount > 5) return { ok: false, reason: "too-many-emojis" };
+    const bareEmojis = (comment.match(EMOJI_REGEX) || []).map(stripVariationSelectors);
+    const unique = new Set(bareEmojis);
+    if (unique.size > 1) return { ok: false, reason: "mixed-emojis" };
   } else if (comment.length < 3) {
     return { ok: false, reason: "too-short" };
   }
