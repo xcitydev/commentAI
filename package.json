@@ -13,9 +13,6 @@
   "dependencies": {
     "@deepgram/sdk": "^4.7.0",
     "@google/genai": "^1.7.0",
-    "@huggingface/inference": "^4.0.6",
-    "@ngrok/ngrok": "^1.5.1",
-    "@pinecone-database/pinecone": "^6.1.1",
     "@slack/bolt": "^4.4.0",
     "apify-client": "^2.12.5",
     "dotenv": "^16.5.0",
