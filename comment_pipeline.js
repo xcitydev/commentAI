@@ -34,6 +34,12 @@ function hasBannedTemplateShape(text) {
   if (/^[\w'-]+(?:\s+[\w'-]+){0,3}\s+creates?\s+/i.test(t)) return true;
   if (/^[\w'-]+(?:\s+[\w'-]+){0,3}\s+starts?\s+with\s+/i.test(t)) return true;
   if (/^[\w'-]+(?:\s+[\w'-]+){0,3}\s+is\s+the\s+standard/i.test(t)) return true;
+  if (/^this\s+[\w'-]+(?:\s+[\w'-]+){0,4}\s+(is|are)\s+/i.test(t)) return true;
+  if (/^this\s+[\w'-]+\s+about\s+/i.test(t)) return true;
+  if (/^"[^"]+"\s+(captures|means|says|shows|proves|nails|represents)\b/i.test(t)) return true;
+  if (/^[\w'-]+(?:\s+[\w'-]+){0,4}\s+(captures|encapsulates|embodies)\s+/i.test(t)) return true;
+  if (/^every\s+[\w'-]+\s+(deserves|needs|should)\s+/i.test(t)) return true;
+  if (/^getting\s+[\w'-]+(?:\s+[\w'-]+){0,4}\s+requires\s+/i.test(t)) return true;
   return false;
 }
 
@@ -59,7 +65,7 @@ function hasBannedWord(text) {
 
 const BANNED_PHRASES = [
   "you're right","you are right","agreed!","sent you a dm","dming you","dm me",
-  "thanks for sharing","thank you for sharing","worth sharing","must buy","must be sharing",
+  "worth sharing","must buy","must be sharing",
   "will be there","see you at","count me in","won't miss","wouldn't miss",
   "saving this","sharing this","gonna sell","going to sell","pending immediately",
   "can't argue","not a bad idea","great option","good option",
@@ -76,12 +82,38 @@ const BANNED_PHRASES = [
   "this is powerful","this is inspiring","this is encouraging","this is timely",
   "this is helpful","this is needed","this is real","this is a must","this is genius",
   "this is what","this is where","this is why","this is how","this is when",
-  "well deserved","well earned","well put","so wonderfully","so beautifully"
+  "well deserved","well earned","well put","so wonderfully","so beautifully",
+  "captures the value","captures the essence","captures perfectly","captures it perfectly",
+  "captures the meaning","captures the truth","captures everything",
+  "sets the standard","sets the tone","sets the bar",
+  "highlighting the word","brings it to the forefront","brings the point home",
+  "reminds me of the importance","reminds me of how important",
+  "the way you present","the way you break","the way you explain",
+  "the way you frame","the way you deliver","the way you always",
+  "always hits home","always hits","hits home",
+  "such a clear","is such a","what a clear",
+  "clear command","direct instruction","essential reminder","constant reminder",
+  "powerful command","powerful message","powerful reminder","powerful truth",
+  "beautiful message","beautiful command","deep message","deep truth",
+  "this approach to","this command about","this command is",
+  "brings the value","brings the truth","brings the heat",
+  "spot on","dead on","right on the money",
+  "your work clarifies","clarifies everything",
+  "essential for everyone","for everyone to see","for everyone to hear",
+  "impact of that","impact of this","depth of that","depth of this",
+  "just so deep","so deep","yet so deep",
+  "reflecting on this","reflecting on that",
+  "shared this with","shared this verse","shared this post",
+  "brings to the forefront","brings to light"
 ];
 
 function hasBannedPhrase(text) {
   const t = text.toLowerCase();
-  return BANNED_PHRASES.some(p => t.includes(p));
+  return BANNED_PHRASES.some(p => {
+    if (p.includes(" ")) return t.includes(p);
+    const esc = p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`\\b${esc}\\b`, "i").test(t);
+  });
 }
 
 const VAGUE_STARTERS = [
@@ -170,9 +202,9 @@ function commentContainsAnchor(comment, anchors) {
   });
 }
 
-const PERSONAL_START_RE = /^(i['\s]|i've |i have |i'd |my |never (thought|realized|expected|knew|considered)|just |first time |the way |feels like |reminds me |sounds like |makes me |going to give|gonna give|respect for|sometimes |it['s]?\s*crazy how|crazy how)/i;
+const PERSONAL_START_RE = /^(i['\s]|i've |i have |i'd |my |never (thought|realized|expected|knew|considered)|just |first time |the way |feels like |reminds me |sounds like |makes me |going to give|gonna give|respect for |respect to |sometimes |it['s]?\s*crazy how|crazy how|wow |damn |man,? |bro,? |glad |thanks for |thank you for |props |props to |shoutout |big up |appreciate |need more|more people |not gonna|not going to|yeah |yea |yes,? |okay,? |ok,? |rough,? |heavy,? |real talk|for real|honestly |ngl |imo |same,? |same here|been there|felt this|preach |powerful,? |got me|hit me|hits me|hit different|straight up|straight facts|as someone who|coming from|took me |took years|takes real|takes a lot|watching this|listening to this|she (looks|seems|feels|sounds|reminds)|he (looks|seems|feels|sounds|reminds)|they (look|seem|feel|sound|remind))/i;
 
-const SHORT_FLAT_RE = /^(love this|great tip|good tip|powerful episode|powerful|noted|wow|so good|solid|good stuff|preach|true|facts|real|makes me think|this is fire|fire|deep|damn|respect|noted that|got it)([\s\p{Extended_Pictographic}]+)?!?$/iu;
+const SHORT_FLAT_RE = /^(love this|great tip|good tip|powerful episode|powerful|noted|wow|so good|solid|good stuff|preach|true|facts|real|makes me think|this is fire|fire|deep|damn|respect|noted that|got it|rough|heavy|same|felt|goated|goat|no cap|w|dub|based|preach it|word|amen|salute|salute to that|noted|felt that|hits|hits hard|so heavy|so raw|so good|nailed it)([\s\p{Extended_Pictographic}]+)?!?$/iu;
 
 function hasSpecificitySignal(comment, anchors) {
   if (commentContainsAnchor(comment, anchors)) return true;
@@ -181,12 +213,14 @@ function hasSpecificitySignal(comment, anchors) {
 }
 
 function normalizeForDedup(text) {
-  return text
+  const textPart = text
     .toLowerCase()
     .replace(EMOJI_REGEX, "")
     .replace(/[^\w\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+  if (textPart) return textPart;
+  return "emoji:" + text.replace(/\s+/g, "");
 }
 
 function jaccardSim(a, b) {
@@ -241,15 +275,6 @@ class RecentCommentsMemory {
 
 const recentMemory = new RecentCommentsMemory(800);
 
-function isEmojiOnly(comment) {
-  const stripped = comment.replace(EMOJI_REGEX, "").replace(/\s/g, "");
-  return stripped.length === 0 && comment.trim().length > 0;
-}
-
-function hasTextAndEmoji(comment) {
-  return /\p{L}/u.test(comment) && EMOJI_REGEX.test(comment);
-}
-
 function stripNumbering(line) {
   return line.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, "").trim();
 }
@@ -290,16 +315,7 @@ function enforceStructure(kept, numComments) {
 
     c = c.replace(/!!+/g, "!");
 
-    const cIsEmojiOnly = isEmojiOnly(c);
-    const cHasTextAndEmoji = hasTextAndEmoji(c);
-    const prevIsEmojiOnly = prev && isEmojiOnly(prev);
-    const prevHasTextAndEmoji = prev && hasTextAndEmoji(prev);
-
-    if (cIsEmojiOnly && prevIsEmojiOnly) continue;
-    if (cHasTextAndEmoji && prevHasTextAndEmoji) {
-      c = c.replace(EMOJI_REGEX, "").trim();
-      if (!c) continue;
-    }
+    if (prev && c.trim() === prev.trim()) continue;
 
     if (!c) continue;
     result.push(c);
@@ -327,6 +343,11 @@ function buildPrompt({ caption, transcription, imageData, ownerFullName, numComm
     : "";
 
   const maxBang = Math.max(2, Math.ceil(numComments * 0.3));
+  const emojiOnlyTarget = Math.round(numComments * 0.4);
+  const textCount = numComments - emojiOnlyTarget;
+  const shortTextCount = Math.round(textCount * 0.4);
+  const mediumTextCount = Math.round(textCount * 0.4);
+  const longTextCount = textCount - shortTextCount - mediumTextCount;
 
   return `${TEAM_SOP}
 
@@ -336,63 +357,97 @@ function buildPrompt({ caption, transcription, imageData, ownerFullName, numComm
 
 You are writing ${numComments} Instagram comments for a post by ${ownerFullName || "the creator"}.
 
-The #1 failure mode we are fixing: generic AI-sounding comments that could be pasted under any post. Every comment must feel like a real person who just watched THIS post.
+The #1 failure mode: comments that sound like an AI summarizing or meta-commenting on the post. A real viewer does NOT rephrase the post's message back at the creator — they REACT to it like a human scrolling their feed.
 
-## ANCHORS (specific details pulled from this post)
-Reference at least ONE of these in ~65% of the comments (exact word or close paraphrase):
+## MIX (this is the shape of the batch)
+- ~${emojiOnlyTarget} comments must be EMOJI-ONLY (1–3 emojis, no text, no punctuation)
+- ~${shortTextCount} SHORT text comments (2–6 words, casual)
+- ~${mediumTextCount} MEDIUM text comments (7–14 words)
+- ~${longTextCount} LONGER two-beat comments (15–28 words, with one natural pause)
+
+## EMOJI-ONLY RULES (this is ~40% of the batch)
+Match the emoji to the tone of a specific moment in the post. Do not pick randomly.
+- Something moving / sacred / heavy / respect for pain → 🙏 or 🙏🙏
+- Something impressive / hard-earned / grit → 💪 or 💪💪
+- Applause / well-done / respect → 👏 or 🙌 or 👏👏
+- Wild / hot / can't-believe-it → 🔥 or 🔥🔥 or 🔥🔥🔥
+- Genuinely funny → 😂 or 🤣 or 😂😂
+- Cosigning hard / truth → 💯 or 👌
+- Chef's kiss / precise / immaculate detail → 🤌
+- Sacred / peace / rest in peace → 🕊
+- GOAT / legend → 🐐
+
+DIVERSIFY the emoji-only comments:
+- Do NOT use the SAME single emoji in more than 3 emoji-only comments across the batch.
+- Vary the COUNT (some 1x, some 2x, some 3x). "🔥" and "🔥🔥" and "🔥🔥🔥" are all fine as different comments.
+- Do NOT combine emojis from different tones in one comment (no "🙏💪🔥").
+- Only ONE type of emoji per emoji-only comment (repeated is fine: "🙏🙏" ok, "🙏💪" not ok).
+
+## TEXT COMMENTS — SOUND LIKE THIS (human)
+"Would drink a bottle of wine to get through the day… that's rough. Glad she found her way out🙏"
+"20 years is no joke. That takes real work 💪"
+"Never thought about addiction as being addicted to 'more' instead of one thing"
+"Wow what a journey to recovery!"
+"Surrender not being the same as giving up is a good way to put it"
+"She looks so different now, in a good way🙏"
+"Respect for still talking about this so openly after all this time"
+"Powerful episode 👏"
+"Thanks for sharing her story, more people need to hear this"
+
+These work because they REACT to a specific moment/fact/quote. Not one of them rephrases the post's message as a definition or truism.
+
+## TEXT COMMENTS — DO NOT SOUND LIKE THIS (AI)
+"'More than just a stamp' captures the value perfectly"     ← quoting + "captures the value"
+"This approach to client documents is strong 💪"            ← "This X to Y is Z"
+"The way you present these verses always hits home!"        ← "the way you [verb] always"
+"Reminds me of the importance of official documents"        ← "reminds me of the importance"
+"'Love one another' is such a clear command!"               ← "is such a [adj] [noun]"
+"Highlighting the word 'love' really brings it to the forefront"  ← meta-commentary
+"Never thought about John 13:34 as a new command for everyone"    ← rephrasing the post as a fact
+"Every client deserves that smile then serious focus"       ← "Every X deserves Y"
+"Getting documents done officially requires that careful touch" ← "Getting X requires Y"
+"Simple message yet so deep"                                ← empty meta-praise
+"Powerful command Annie!"                                   ← "[adj] [topic-noun] [name]"
+
+Every one of the above sounds like an AI summarizing the post back to the creator. Do NOT produce comments of this shape.
+
+## HARD BANS (never generate)
+- Meta-commentary that rephrases the post's message: "captures the value/essence perfectly", "sets the standard", "brings it to the forefront", "highlighting the word", "reminds me of the importance", "always hits home", "such a clear [noun]"
+- "This [X] is [Y]" praise shape ("This approach is strong", "This command is essential")
+- Quote-then-definition ("'X' means trust", "'X' captures perfectly", "'X' is the value")
+- Template shapes: "The [noun] is [adj]", "That [noun] is [adj]"
+- Fortune-cookie: "[abstract] creates [abstract]", "[X] starts with [Y]"
+- Floating vague praise: "Great perspective", "This is encouraging", "So relatable", "Real helpful", "Makes sense", "Well said", "Good to know", "Worth checking out", "Spot on"
+- AI-tell words: insane, unreal, next level, iconic, unmatched, breathtaking, perfection, absolutely, truly, beyond, literally, definitely, mind-blowing, flawless, masterpiece, stunning, gorgeous, obsessed, incredible, amazing, awesome
+- SOP-banned phrases: "You're right", "Agreed!", "Saving this", "Sent you a DM", "Thanks for sharing" (except in a fuller sentence like "Thanks for sharing her story, more people need to hear this")
+- Non-yellow emojis. STRICTLY forbidden: ❤️ 💔 💖 🤍 💜 💙 💚 🖤 😍 🥰 🥺 🚨 💥 ✅ ❌ ⭐ 🏆 🎉 ✨ 🫶 💕 💞 💗
+- Slang drawls: "Gorggg", "Obsesseddd", triple-letter stretches
+
+## APPROVED EMOJIS
+👏 🙌 🤌 👍 🔥 😂 🤣 🤩 💯 🚀 💪 🐐 🕊 🙏 👌 🤙
+
+## ANCHORS (specific details from this post)
+For text comments, reference at least ONE of these in ~65% (exact or close paraphrase):
 ${anchorList}
 
-If a comment doesn't reference an anchor, it MUST use a first-person hook like "I've actually…", "Never thought about…", "Never realized…", "The way you…", "Reminds me of…". No floating generic praise.
+If a text comment doesn't reference an anchor, it must be a genuine personal reaction ("I've actually…", "Never thought about…", "Reminds me of…", "As someone who…", "Watching this made me…"). But do NOT let "Never thought about…" appear more than TWICE in the whole batch — it's an AI-tell when overused.
 
-## COMMENT ARCHETYPES (mix them — no more than 3 of the same type in a row)
-1. QUOTE-AND-REACT — paraphrase a line/idea, then react briefly.
-   Ex: "Would drink a bottle of wine to get through the day… that's rough. Glad she found her way out🙏"
-2. PERSONAL EXPERIENCE — first-person, tie to your own life.
-   Ex: "I've actually started doing box breathing before stressful meetings"
-3. NEW REALIZATION — "Never thought about…", "Never realized…"
-   Ex: "Never thought about addiction as being addicted to 'more' instead of one thing"
-4. SPECIFIC OBSERVATION — a concrete detail (visual, phrase, moment).
-   Ex: "She looks so different now, in a good way🙏"
-5. OUTSIDE KNOWLEDGE — a related fact or connection.
-   Ex: "I've heard athletes do this too"
-6. TWO-BEAT — observation + brief reaction, one internal break.
-   Ex: "20 years is no joke. That takes real work 💪"
-7. FRAMING PRAISE — compliment a specific idea/way it was said, not the person.
-   Ex: "Surrender not being the same as giving up is a good way to put it"
-8. SHORT FLAT REACTION — sparingly, MAX 2 across the batch.
-   Ex: "Great tip", "Powerful episode 👏"
-
-## HARD BANS (never generate these)
-- Template shapes: "The [noun] is [adj]", "That [noun] is [adj]" (e.g. "The design is amazing", "That kitchen is gorgeous")
-- Fortune-cookie shapes: "[abstract] creates [abstract]" (e.g. "Discipline creates consistency"), "[X] starts with [Y]"
-- Stating the obvious about the topic (e.g. "College tuition is wild", "Growth never really stops", "Kids are pricey")
-- Floating vague praise (e.g. "Great perspective", "This is encouraging", "So relatable", "Real helpful", "Makes sense", "Well said", "Good to know", "Worth checking out")
-- AI-tell words: insane, unreal, next level, iconic, unmatched, breathtaking, perfection, absolutely, truly, beyond, literally, definitely, mind-blowing, flawless, masterpiece, stunning, gorgeous, obsessed, incredible, amazing, awesome
-- Banned SOP phrases: "You're right", "Agreed!", "I would…", "Saving this", "Sent you a DM", "Thanks for sharing", "Will be there", "Count me in"
-- Non-yellow emojis. STRICTLY forbidden: ❤️ 💔 💖 🤍 💜 💙 💚 🖤 😍 🥰 🥺 🚨 💥 ✅ ❌ ⭐ 🏆 🎉 ✨ 🫶 💕 💞 💗
-- Slang like "Gorggg", "Obsesseddd", triple-letter drawls
-
-## APPROVED EMOJIS (yellow-toned only, use sparingly and only when they fit)
-👏 🙌 🤌 👍 🔥 😂 🤣 🤩 💯 🚀 💪 🐐 🕊 🙏 👌
-
-## PUNCTUATION FOR THIS BATCH
+## PUNCTUATION
 ${puncRules}
-- Max ${maxBang} comments ending in "!" across the whole batch.
+- Max ${maxBang} text comments ending in "!" across the whole batch.
 - Never two consecutive comments ending in "!".
 - Never "!!" or "‼️".
 
 ## STRUCTURE
-- ${numComments} UNIQUE comments — no exact repeats, no near-duplicates, no rephrasings of each other.
-- Comment length: mostly 4–14 words. A few longer two-beat comments are fine.
+- ${numComments} UNIQUE comments — no near-duplicates, no rephrasings of each other.
+- Do not put two identical emoji-only comments back to back.
 - No numbering, no bullets, no intro line, no outro line.
 - Separate each comment with ONE blank line.
-- No consecutive emoji-only lines.
-- No consecutive text-with-emoji lines.
 
 ## CONTEXT
 - Creator: ${ownerFullName || "unknown"}
 - CAPTION: "${caption || "(none)"}"
-${transcription ? `- VIDEO TRANSCRIPT: "${transcription}"\n` : ""}${imageData ? "- IMAGE: attached — analyze concrete visual details (objects, colors, setting, actions) and reference them in specific comments.\n" : ""}${language && language !== "english" ? `\n## LANGUAGE\nWrite all comments in ${language}. Do not translate the rules; translate only the output.\n` : ""}${avoidBlock}
+${transcription ? `- VIDEO TRANSCRIPT: "${transcription}"\n` : ""}${imageData ? "- IMAGE: attached — analyze concrete visual details (objects, colors, setting, actions) and reference them in specific comments.\n" : ""}${language && language !== "english" ? `\n## LANGUAGE\nWrite all comments in ${language}. Do not translate the rules; translate only the output. Emoji-only comments are the same in any language.\n` : ""}${avoidBlock}
 
 Now produce exactly ${numComments} comments. Nothing else — no preamble, no closing, no numbering.`;
 }
@@ -413,7 +468,14 @@ async function callGemini({ genAI, prompt, imageData }) {
 function evaluateComment(comment, ctx) {
   const { anchors, keptSoFar, shortFlatUsed } = ctx;
 
-  if (!comment || comment.length < 3) return { ok: false, reason: "too-short" };
+  if (!comment) return { ok: false, reason: "too-short" };
+  const emojiCount = (comment.match(EMOJI_REGEX) || []).length;
+  const strippedForLen = comment.replace(EMOJI_REGEX, "").trim();
+  if (strippedForLen.length === 0) {
+    if (emojiCount === 0) return { ok: false, reason: "too-short" };
+  } else if (comment.length < 3) {
+    return { ok: false, reason: "too-short" };
+  }
   if (comment.length > 240) return { ok: false, reason: "too-long" };
   if (/^\s*(here (are|is)|below|these are|comments?:)/i.test(comment)) return { ok: false, reason: "preamble" };
 
