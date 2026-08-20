@@ -18,5 +18,11 @@
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "node-fetch": "^2.7.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@google/genai",
+      "protobufjs"
+    ]
   }
 }
